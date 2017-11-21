@@ -14,7 +14,7 @@
       <Description>
         <em:id>{3550f703-e582-4d05-9a08-453d09bdfdc6}</em:id>
         <em:minVersion>45.0</em:minVersion>
-        <em:maxVersion>51.0b1</em:maxVersion>
+        <em:maxVersion>59.0</em:maxVersion>
       </Description>
     </em:targetApplication>
 
@@ -22,10 +22,9 @@
     <em:name>Thunderbird Conversations</em:name>
     <em:description>Brings a conversation view to a Thunderbird near you!</em:description>
     <em:creator>Jonathan Protzenko</em:creator>
-    <em:optionsURL>chrome://conversations/content/options.xul</em:optionsURL>
-    <em:optionsType>2</em:optionsType>
     <em:homepageURL>http://github.com/protz/thunderbird-conversations/wiki</em:homepageURL>
     <em:bootstrap>true</em:bootstrap>
+    <em:hasEmbeddedWebExtension>true</em:hasEmbeddedWebExtension>
     <em:type>2</em:type>
 
     <em:localized>

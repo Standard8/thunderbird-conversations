@@ -1,0 +1,14 @@
+{
+  "applications": {
+    "gecko": {
+      "id": "test@example.com"
+    }
+  },
+  "manifest_version": 2,
+  "name": "Thunderbird Conversations Tester",
+  "version": "2.13.3",
+  "options_ui": {
+      "page": "options.html"
+  },
+  "permissions": ["storage"]
+}

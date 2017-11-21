@@ -44,6 +44,11 @@ const Cr = Components.results;
 Cu.import("resource://gre/modules/XPCOMUtils.jsm");
 Cu.import("resource://gre/modules/Services.jsm");
 const {fixIterator} = Cu.import("resource:///modules/iteratorUtils.jsm", {});
+Cu.import("resource:///modules/iteratorUtils.jsm");
+XPCOMUtils.defineLazyModuleGetter(this, "LegacyExtensionsUtils",
+                                  "resource://gre/modules/LegacyExtensionsUtils.jsm");
+
+const kExtensionID = "gconversation@xulforum.org";
 
 let global = this;
 let Log;
@@ -168,6 +173,28 @@ let windowObserver = {
   }
 };
 
+let addonResourceURI;
+let appStartupDone;
+let appStartupPromise = new Promise((resolve, reject) => {
+  appStartupDone = resolve;
+});
+let startupReason;
+
+const appStartupObserver = {
+  register() {
+    Services.obs.addObserver(this, "final-ui-startup");
+  },
+
+  unregister() {
+    Services.obs.removeObserver(this, "final-ui-startup");
+  },
+
+  observe() {
+    appStartupDone();
+    this.unregister();
+  }
+};
+
 function startup(aData, aReason) {
   ResourceRegister.init(aData.installPath, "conversations");
   /* import-globals-from modules/log.js */
@@ -179,6 +206,16 @@ function startup(aData, aReason) {
 
   Log = setupLogging("Conversations.MonkeyPatch");
   Log.debug("startup, aReason=", aReason);
+
+  startupReason = aReason;
+  if (aReason === BOOTSTRAP_REASONS.APP_STARTUP) {
+    appStartupObserver.register();
+  } else {
+    appStartupDone();
+  }
+
+  addonResourceURI = aData.resourceURI;
+  appStartupPromise = appStartupPromise.then(handleStartup);
 
   try {
     // Patch all existing windows when the UI is built; all locales should have been loaded here
@@ -214,16 +251,16 @@ function startup(aData, aReason) {
     Services.obs.addObserver({
       observe: function(aSubject, aTopic, aData) {
         if (aTopic == "addon-options-displayed" && aData == "gconversation@xulforum.org") {
-          loadImports();
-          CustomizeKeys.enable(aSubject); // aSubject is the options document
+          //loadImports();
+          //CustomizeKeys.enable(aSubject); // aSubject is the options document
         }
       }
     }, "addon-options-displayed", false);
     Services.obs.addObserver({
       observe: function(aSubject, aTopic, aData) {
         if (aTopic == "addon-options-hidden" && aData == "gconversation@xulforum.org") {
-          loadImports();
-          CustomizeKeys.disable(aSubject); // aSubject is the options document
+          //loadImports();
+          //CustomizeKeys.disable(aSubject); // aSubject is the options document
         }
       }
     }, "addon-options-hidden", false);
@@ -233,11 +270,37 @@ function startup(aData, aReason) {
   }
 }
 
+function handleStartup() {
+  const webExtension = LegacyExtensionsUtils.getEmbeddedExtensionFor({
+    id: kExtensionID,
+    resourceURI: addonResourceURI,
+  });
+  webExtension.startup(startupReason).then(api => {
+    Log.info("extension started");
+    return Promise.resolve();
+  }).catch(err => {
+    console.error(`WE Follow-On Search startup failed: ${err}`);
+  });
+}
+
+
 function shutdown(aData, aReason) {
   // No need to do extra work here
   Log.debug("shutdown, aReason=", aReason);
-  if (aReason == BOOTSTRAP_REASONS.APP_SHUTDOWN)
+
+  const webExtension = LegacyExtensionsUtils.getEmbeddedExtensionFor({
+    id: kExtensionID,
+    resourceURI: addonResourceURI,
+  });
+
+  if (aReason == BOOTSTRAP_REASONS.APP_SHUTDOWN) {
+    webExtension.shutdown(aReason)
     return;
+  }
+
+  appStartupPromise = appStartupPromise.then(() => {
+    return webExtension.shutdown(aReason)
+  });
 
   Services.ww.unregisterNotification(windowObserver);
 
