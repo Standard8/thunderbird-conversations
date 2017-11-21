@@ -149,6 +149,10 @@ PrefManager.prototype = {
   },
 
   getString: function (p) {
+    if (gPrefBranch.getStringPref) {
+      return gPrefBranch.getStringPref(p);
+    }
+    // Pre Thunderbird 54 support.
     return gPrefBranch.getComplexValue(p, Ci.nsISupportsString).data;
   },
 
@@ -165,6 +169,10 @@ PrefManager.prototype = {
   },
 
   setString: function (p, v) {
+    if (gPrefBranch.setStringPref) {
+      return gPrefBranch.setStringPref(p, v);
+    }
+    // Pre Thunderbird 54 support.
     let str = Cc["@mozilla.org/supports-string;1"]
               .createInstance(Ci.nsISupportsString);
     str.data = v;
