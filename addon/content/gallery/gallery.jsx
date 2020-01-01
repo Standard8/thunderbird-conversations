@@ -4,19 +4,6 @@
 
 "use strict";
 
-const { StringBundle } = ChromeUtils.import(
-  "resource:///modules/StringBundle.js"
-);
-const { MsgHdrToMimeMessage } = ChromeUtils.import(
-  "resource:///modules/gloda/mimemsg.js"
-);
-const { msgUriToMsgHdr } = ChromeUtils.import(
-  "chrome://conversations/content/modules/stdlib/msgHdrUtils.js"
-);
-let strings = new StringBundle(
-  "chrome://conversations/locale/message.properties"
-);
-
 /* globals React, ReactDOM, PropTypes */
 
 class Photo extends React.Component {
@@ -58,41 +45,36 @@ class MyComponent extends React.Component {
     let url = document.location.href;
     let uri = url.substr(url.indexOf(param) + param.length, url.length);
 
-    // Create the Gallery object.
-    let msgHdr = msgUriToMsgHdr(uri);
-    if (msgHdr && msgHdr.messageId) {
-      this.load(msgHdr);
-    } else {
-      document.getElementsByClassName("gallery")[0].textContent = strings.get(
-        "messageMovedOrDeletedGallery2"
-      );
-    }
+    this.load(decodeURI(uri));
   }
 
   /**
    * This function takes care of obtaining a full representation of the message,
    *  and then taking all its attachments, to just keep track of the image ones.
    */
-  load(msgHdr) {
-    MsgHdrToMimeMessage(
-      msgHdr,
-      this,
-      (mimeHdr, aMimeMsg) => {
-        let attachments = aMimeMsg.allAttachments;
-        attachments = attachments.filter(
-          x => x.contentType.indexOf("image/") === 0
-        );
-        document.title = strings
-          .get("galleryTitle")
-          .replace("#1", mimeHdr.mime2DecodedSubject);
-        this.output(attachments);
-      },
-      true,
-      {
-        partsOnDemand: true,
-        examineEncryptedParts: true,
-      }
+  async load(uri) {
+    // Create the Gallery object.
+    let id = await browser.conversations.getMesageIdForUri(uri);
+    if (!id) {
+      document.getElementById("gallery").textContent = browser.i18n.getMessage(
+        "galleryMessageMovedOrDeleted"
+      );
+      return;
+    }
+
+    // Bug is https://bugzilla.mozilla.org/show_bug.cgi?id=1606552
+    // Need to implement manual API for now :-(
+    const header = await browser.messages.get(id);
+    document.title = browser.i18n.getMessage("galleryTitle", [header.subject]);
+
+    let messageParts = await browser.messages.getFull(id);
+    messageParts = messageParts.parts[0].parts;
+
+    messageParts = messageParts.filter(
+      p => p.contentType.indexOf("image/") == 0
     );
+
+    await this.output(id, messageParts);
   }
 
   /**
@@ -101,17 +83,27 @@ class MyComponent extends React.Component {
    * It runs the handlebars template and then appends the result to the root
    *  DOM node.
    */
-  output(attachments) {
-    let messenger = Cc["@mozilla.org/messenger;1"].createInstance(
-      Ci.nsIMessenger
-    );
+  async output(id, attachments) {
+    // let messenger = Cc["@mozilla.org/messenger;1"].createInstance(
+    //   Ci.nsIMessenger
+    // );
     let i = 1;
+    for (const attachment of attachments) {
+      // This won't work, xref bug
+      // https://bugzilla.mozilla.org/show_bug.cgi?id=1606552
+      attachment.url = await browser.conversations.getAttachmentBody(
+        id,
+        attachment.partName
+      );
+    }
     this.setState({
       images: attachments.map(attachment => {
         return {
           index: i++,
           name: attachment.name,
-          size: messenger.formatFileSize(attachment.size),
+          size: attachment.size,
+          // We'd need an API for this.
+          // size: messenger.formatFileSize(attachment.size),
           src: attachment.url,
         };
       }),

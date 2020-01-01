@@ -7,6 +7,10 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   Customizations: "chrome://conversations/content/modules/assistant.js",
   dumpCallStack: "chrome://conversations/content/modules/log.js",
   ExtensionCommon: "resource://gre/modules/ExtensionCommon.jsm",
+  MessageUtils: "chrome://conversations/content/modules/message.js",
+  MsgHdrToMimeMessage: "resource:///modules/gloda/mimemsg.js",
+  msgUriToMsgHdr:
+    "chrome://conversations/content/modules/stdlib/msgHdrUtils.js",
   Prefs: "chrome://conversations/content/modules/prefs.js",
   Services: "resource://gre/modules/Services.jsm",
   setupLogging: "chrome://conversations/content/modules/log.js",
@@ -45,6 +49,9 @@ var conversations = class extends ExtensionCommon.ExtensionAPI {
   getAPI(context) {
     return {
       conversations: {
+        setup() {
+          MessageUtils.extensionBaseURL = context.extension.baseURL;
+        },
         async setPref(name, value) {
           switch (prefType(name)) {
             case "bool": {
@@ -103,6 +110,49 @@ var conversations = class extends ExtensionCommon.ExtensionAPI {
             Log.warn("Uninstall information already there, not overwriting...");
           }
         },
+        async getMesageIdForUri(uri) {
+          const msgHdr = msgUriToMsgHdr(uri);
+          if (!msgHdr) {
+            return null;
+          }
+          return context.extension.messageManager.convert(msgHdr).id;
+        },
+        async getAttachmentBody(id, partName) {
+          const msgHdr = context.extension.messageManager.get(id);
+          return new Promise(resolve => {
+            MsgHdrToMimeMessage(
+              msgHdr,
+              this,
+              (mimeHdr, aMimeMsg) => {
+                let attachments = aMimeMsg.allAttachments;
+                console.log({attachments});
+                attachments = attachments.filter(
+                  x => x.partName == partName
+                );
+                resolve(attachments[0].url);
+              },
+              true,
+              {
+                partsOnDemand: true,
+                examineEncryptedParts: true,
+              }
+            );
+          });
+        },
+        onOpenTab: new ExtensionCommon.EventManager({
+          context,
+          name: "conversation.onOpenTab",
+          register(fire) {
+            function callback(url) {
+              return fire.async(url);
+            }
+
+            MessageUtils.setOpenTabListener(callback);
+            return function() {
+              MessageUtils.setOpenTabListener(null);
+            };
+          },
+        }).api(),
       },
     };
   }

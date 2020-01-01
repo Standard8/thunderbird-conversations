@@ -16,6 +16,12 @@ class Background {
 let background = new Background();
 background.init().catch(console.error);
 
+browser.conversations.onOpenTab.addListener(url => {
+  browser.tabs.create({
+    url,
+  });
+});
+
 browser.runtime.onInstalled.addListener(details => {
   if (details.reason == "install") {
     browser.tabs.create({

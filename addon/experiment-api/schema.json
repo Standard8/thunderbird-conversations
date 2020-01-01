@@ -5,7 +5,7 @@
       {
         "name": "getPref",
         "type": "function",
-        "description": "Gets a conversation preference.",
+        "description": "Temporary. Gets a conversation preference.",
         "async": true,
         "parameters": [
           {
@@ -18,7 +18,7 @@
       {
         "name": "setPref",
         "type": "function",
-        "description": "Sets a conversation preference.",
+        "description": "Temporary. Sets a conversation preference.",
         "async": true,
         "parameters": [
           {
@@ -36,7 +36,7 @@
       {
         "name": "installCustomisations",
         "type": "function",
-        "description": "Sets initial customisations",
+        "description": "Temporary. Sets initial customisations",
         "async": true,
         "parameters": [
           {
@@ -46,6 +46,51 @@
             "items": {
               "type": "string"
             }
+          }
+        ]
+      },
+      {
+        "name": "getMesageIdForUri",
+        "type": "function",
+        "description": "Temporary. Gets the WebExtension message ID for a message uri.",
+        "async": true,
+        "parameters": [
+          {
+            "name": "uri",
+            "type": "string",
+            "descrption": "The uri to convert."
+          }
+        ]
+      },
+      {
+        "name": "getAttachmentBody",
+        "type": "function",
+        "description": "Temporary. Gets the attachment body for a particular message and part.",
+        "async": true,
+        "parameters": [
+          {
+            "name": "id",
+            "type": "integer",
+            "description": "The message id."
+          },
+          {
+            "name": "partName",
+            "type": "string",
+            "description": "The part name."
+          }
+        ]
+      }
+    ],
+    "events": [
+      {
+        "name": "onOpenTab",
+        "type": "function",
+        "description": "Temporary. Fires for selected actions",
+        "parameters": [
+          {
+            "name": "uri",
+            "type": "string",
+            "description": "The uri to open"
           }
         ]
       }
