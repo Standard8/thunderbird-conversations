@@ -12,9 +12,6 @@
   "description": "__MSG_extensionDescription__",
   "version": "3.1pre",
   "homepage_url": "http://github.com/protz/thunderbird-conversations/wiki",
-  "legacy": {
-    "type": "bootstrap"
-  },
   "background": {
     "page": "background.html"
   },
@@ -22,7 +19,7 @@
     "open_in_tab": true,
     "page": "options.html"
   },
-  "permissions": ["storage"],
+  "permissions": ["menus", "menus.overrideContext", "storage"],
   "experiment_apis": {
     "conversations": {
       "schema": "experiment-api/schema.json",

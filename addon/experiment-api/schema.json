@@ -49,6 +49,14 @@
           }
         ]
       }
+    ],
+    "events": [
+      {
+        "name": "onContextMenu",
+        "type": "function",
+        "description": "Fired when a context menu is opened on stub.xhtml.",
+        "parameters": []
+      }
     ]
   }
 ]

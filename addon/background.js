@@ -3,13 +3,16 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
 import { Prefs } from "./prefs.js";
+import { ContextMenus } from "./contextMenus.js";
 
 class Background {
   constructor() {
     this._prefs = new Prefs();
+    this._contextMenus = new ContextMenus();
   }
   async init() {
     await this._prefs.init();
+    await this._contextMenus.init();
   }
 }
 

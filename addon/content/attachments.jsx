@@ -11,6 +11,22 @@ class Attachment extends React.PureComponent {
     this.preview = this.preview.bind(this);
     this.downloadAttachment = this.downloadAttachment.bind(this);
     this.openAttachment = this.openAttachment.bind(this);
+    this.onContextMenu = this.onContextMenu.bind(this);
+  }
+
+  componentDidMount() {
+    document.addEventListener("contextmenu", this.onContextMenu);
+  }
+
+  componentDidUnmount() {
+    document.addEventListener("contextmenu", this.onContextMenu);
+  }
+
+  onContextMenu(event) {
+    if (event.target == this.div || event.target.parentNode == this.div) {
+      console.log("override!");
+      ConversationUtils.fireContextMenuListener();
+    }
   }
 
   preview() {
@@ -61,12 +77,8 @@ class Attachment extends React.PureComponent {
     // the newer "onContextMenu".
     /* eslint-disable react/no-unknown-property */
     return (
-      <li
-        className="clearfix hbox attachment"
-        contextmenu="attachmentMenu"
-        draggable="true"
-      >
-        <div className="attachmentThumb">
+      <li className="clearfix hbox attachment" draggable="true">
+        <div className="attachmentThumb" ref={div => (this.div = div)}>
           <img
             className={
               this.props.imgClass + (enablePreview ? " view-attachment" : "")

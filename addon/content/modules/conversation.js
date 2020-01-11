@@ -251,6 +251,22 @@ class _ConversationUtils {
       win.SendUnsentMessages();
     }
   }
+
+  addContextMenuListener(listener) {
+    this._listener = listener;
+  }
+
+  removeContextMenuListener(listener) {
+    if (this._listener == listener) {
+      delete this._listener;
+    }
+  }
+
+  fireContextMenuListener() {
+    if (this._listener) {
+      this._listener();
+    }
+  }
 }
 
 var ConversationUtils = new _ConversationUtils();

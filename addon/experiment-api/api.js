@@ -3,9 +3,10 @@ const { XPCOMUtils } = ChromeUtils.import(
 );
 
 XPCOMUtils.defineLazyModuleGetters(this, {
-  // Get various parts of the WebExtension framework that we need.
+  ConversationUtils: "chrome://conversations/content/modules/conversation.js",
   Customizations: "chrome://conversations/content/modules/assistant.js",
   dumpCallStack: "chrome://conversations/content/modules/log.js",
+  // Get various parts of the WebExtension framework that we need.
   ExtensionCommon: "resource://gre/modules/ExtensionCommon.jsm",
   Prefs: "chrome://conversations/content/modules/prefs.js",
   Services: "resource://gre/modules/Services.jsm",
@@ -91,6 +92,17 @@ var conversations = class extends ExtensionCommon.ExtensionAPI {
 
           return JSON.stringify(uninstallInfos);
         },
+        onContextMenu: new ExtensionCommon.EventManager({
+          context,
+          name: "conversations.onContextMenu",
+          register(fire) {
+            function callback() {
+              fire.sync();
+            }
+            ConversationUtils.addContextMenuListener(callback);
+            return () => ConversationUtils.removeContextMenuListener(callback);
+          },
+        }).api(),
       },
     };
   }

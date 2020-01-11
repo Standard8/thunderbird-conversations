@@ -76,3 +76,9 @@ window.addEventListener(
   },
   { once: true }
 );
+
+document.addEventListener("contextmenu", () => {
+  browser.menus.overrideContext({
+    showDefaults: false,
+  });
+});
