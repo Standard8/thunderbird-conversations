@@ -40,7 +40,7 @@ function setupFullLogging(name) {
   let root = Log;
   root.level = Log4Moz.Level.All;
 
-  if (Prefs.logging_enabled) {
+  if (true) {
     // A console appender outputs to the JS Error Console
     let capp = new Log4Moz.ConsoleAppender(formatter);
     capp.level = Log4Moz.Level.All;
