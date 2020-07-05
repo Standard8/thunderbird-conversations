@@ -54,7 +54,9 @@ export class Contacts {
           identityEmails,
           this._showCondensed
         );
-        this._cache.set(contactEmail, data);
+        if (contactEmail) {
+          this._cache.set(contactEmail.toLowerCase(), data);
+        }
       }
       return this._cache.get(key);
     }
@@ -67,7 +69,6 @@ export class Contacts {
       this._showCondensed
     );
     this._colorCache.set(key, data);
-
     return data;
   }
 

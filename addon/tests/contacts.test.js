@@ -18,7 +18,7 @@ describe("Contacts setup", () => {
 
   test("can be initialized", async () => {
     let contacts = new Contacts();
-    contacts.init();
+    await contacts.init();
   });
 });
 
@@ -82,14 +82,11 @@ describe("Getting known contacts", () => {
   let contacts = new Contacts();
 
   beforeAll(async () => {
-    browser.convContacts.getIdentityEmails = jest
-      .fn()
-      .mockReturnValue(Promise.resolve([]));
     await contacts.init();
   });
 
   beforeEach(() => {
-    browser.contacts.quickSearch = jest.fn().mockReturnValue(
+    jest.spyOn(browser.contacts, "quickSearch").mockImplementation(() =>
       Promise.resolve([
         {
           id: "1",
@@ -98,7 +95,7 @@ describe("Getting known contacts", () => {
             LastName: "last",
             DisplayName: "contact name",
             PrimaryEmail: "contact@example.com",
-            SecondEmail: "second@example.com",
+            SecondEmail: "Second@example.com",
             PreferDisplayName: "1",
           },
           type: "contact",
@@ -107,6 +104,10 @@ describe("Getting known contacts", () => {
         },
       ])
     );
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   test("should get a contact from the address book", async () => {
@@ -151,7 +152,7 @@ describe("Getting known contacts", () => {
       initials: "CN",
       displayEmail: "",
       tooltipName: "contact name",
-      email: "second@example.com",
+      email: "Second@example.com",
       avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
       contactId: "1",
       extra: "",
@@ -159,5 +160,124 @@ describe("Getting known contacts", () => {
     });
 
     expect(browser.contacts.quickSearch).not.toHaveBeenCalled();
+  });
+});
+
+describe("Test contact initials", () => {
+  let contacts = new Contacts();
+
+  beforeAll(async () => {
+    await contacts.init();
+  });
+
+  test("Extracts initials from names", async () => {
+    const tests = [
+      {
+        name: "X",
+        email: "X@example.com",
+        expected: "X",
+      },
+      {
+        name: "Tammy Smith",
+        email: "foo1@example.com",
+        expected: "TS",
+      },
+      {
+        name: "tammy smith",
+        email: "foo2@example.com",
+        expected: "TS",
+      },
+      {
+        name: "tammy smith jackson",
+        email: "foo3@example.com",
+        expected: "TJ",
+      },
+    ];
+
+    for (let t of tests) {
+      await expect(contacts.get(t.name, t.email, "from")).resolves.toEqual(
+        expect.objectContaining({
+          initials: t.expected,
+        })
+      );
+    }
+  });
+
+  test("Handles wide characters", async () => {
+    const tests = [
+      {
+        name: "明治天皇",
+        email: "bar1@example.com",
+        expected: "明治",
+      },
+      {
+        name: "😍😏😊",
+        email: "bar2@example.com",
+        expected: "😍",
+      },
+    ];
+
+    for (let t of tests) {
+      await expect(contacts.get(t.name, t.email, "from")).resolves.toEqual(
+        expect.objectContaining({
+          initials: t.expected,
+        })
+      );
+    }
+  });
+
+  test("getInitials interprets the first part of an email address as being a name", async () => {
+    const tests = [
+      {
+        name: "",
+        email: "sam@fake.com",
+        expected: "SA",
+      },
+      {
+        name: "",
+        email: "same.wise@fake.com",
+        expected: "SW",
+      },
+      {
+        name: "",
+        email: "same.wise+extra@fake.com",
+        expected: "SW",
+      },
+    ];
+
+    for (let t of tests) {
+      await expect(contacts.get(t.name, t.email, "from")).resolves.toEqual(
+        expect.objectContaining({
+          initials: t.expected,
+        })
+      );
+    }
+  });
+
+  test("freshColor turns an email into a valid hsl color", async () => {
+    // From https://gist.github.com/olmokramer/82ccce673f86db7cda5e
+    function isValidColor(color) {
+      if (color.charAt(0) === "#") {
+        color = color.substring(1);
+        return (
+          [3, 4, 6, 8].indexOf(color.length) > -1 && !isNaN(parseInt(color, 16))
+        );
+      }
+      return /^(rgb|hsl)a?\((\d+%?(deg|rad|grad|turn)?[,\s]+){2,3}[\s\/]*[\d\.]+%?\)$/i.test(
+        color
+      );
+    }
+
+    let abc = await contacts.get("", "abc@fake.com", "from");
+    let cbc = await contacts.get("", "cbc@fake.com", "from");
+
+    // Outputs a valid css color
+    expect(isValidColor(abc.colorStyle.backgroundColor)).toBe(true);
+    expect(isValidColor(cbc.colorStyle.backgroundColor)).toBe(true);
+
+    // Outputs different colors for different emails
+    expect(abc.colorStyle.backgroundColor).not.toBe(
+      cbc.colorStyle.backgroundColor
+    );
   });
 });
