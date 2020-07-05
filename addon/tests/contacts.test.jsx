@@ -22,13 +22,12 @@ describe("Contacts setup", () => {
   });
 });
 
-describe("Getting contacts", () => {
+describe("Getting unknown contacts", () => {
   let contacts = new Contacts();
-  browser.conversations.getCorePref = jest.fn().mockReturnValue(false);
-  browser.convContacts.getIdentityEmails = jest
-    .fn()
-    .mockReturnValue(Promise.resolve([]));
-  contacts.init();
+
+  beforeAll(async () => {
+    await contacts.init();
+  });
 
   test("can get a contact object for an email", async () => {
     await expect(contacts.get("", "test@example.com", "from")).resolves.toEqual(
@@ -76,5 +75,89 @@ describe("Getting contacts", () => {
       extra: "",
       colorStyle: { backgroundColor: "hsl(11, 70%, 43%)" },
     });
+  });
+});
+
+describe("Getting known contacts", () => {
+  let contacts = new Contacts();
+
+  beforeAll(async () => {
+    browser.convContacts.getIdentityEmails = jest
+      .fn()
+      .mockReturnValue(Promise.resolve([]));
+    await contacts.init();
+  });
+
+  beforeEach(() => {
+    browser.contacts.quickSearch = jest.fn().mockReturnValue(
+      Promise.resolve([
+        {
+          id: "1",
+          properties: {
+            FirstName: "first",
+            LastName: "last",
+            DisplayName: "contact name",
+            PrimaryEmail: "contact@example.com",
+            SecondEmail: "second@example.com",
+            PreferDisplayName: "1",
+          },
+          type: "contact",
+          parentId: "2",
+          readOnly: false,
+        },
+      ])
+    );
+  });
+
+  test("should get a contact from the address book", async () => {
+    await expect(
+      contacts.get("", "contact@example.com", "from")
+    ).resolves.toEqual({
+      name: "contact name",
+      initials: "CN",
+      displayEmail: "",
+      tooltipName: "contact name",
+      email: "contact@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: "1",
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(4, 70%, 46%)" },
+    });
+  });
+
+  test("should cache contacts", async () => {
+    await expect(
+      contacts.get("", "contact@example.com", "from")
+    ).resolves.toEqual({
+      name: "contact name",
+      initials: "CN",
+      displayEmail: "",
+      tooltipName: "contact name",
+      email: "contact@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: "1",
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(4, 70%, 46%)" },
+    });
+
+    expect(browser.contacts.quickSearch).not.toHaveBeenCalled();
+  });
+
+  test("should also cache alternate emails of contacts", async () => {
+    await expect(
+      contacts.get("", "second@example.com", "from")
+    ).resolves.toEqual({
+      name: "contact name",
+      initials: "CN",
+      displayEmail: "",
+      tooltipName: "contact name",
+      email: "second@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: "1",
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(4, 70%, 46%)" },
+    });
+
+    expect(browser.contacts.quickSearch).not.toHaveBeenCalled();
   });
 });

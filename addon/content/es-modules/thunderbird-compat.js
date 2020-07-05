@@ -93,7 +93,12 @@ if (!browser.tabs) {
 
 if (!browser.conversations) {
   browser.conversations = {
-    getCorePref() {},
+    async getCorePref(name) {
+      if (name == "mail.showCondensedAddresses") {
+        return true;
+      }
+      return undefined;
+    },
     undoCustomizations() {},
     onCorePrefChanged: {
       addListener() {},
@@ -111,6 +116,14 @@ if (!browser.convContacts) {
 
 if (!browser.accounts) {
   browser.accounts = {};
+}
+
+if (!browser.contacts) {
+  browser.contacts = {
+    quickSearch() {
+      return [];
+    },
+  };
 }
 
 export { browser };

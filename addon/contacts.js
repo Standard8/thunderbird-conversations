@@ -8,8 +8,8 @@ export class Contacts {
     this._colorCache = new Map();
   }
 
-  init() {
-    this._showCondensed = browser.conversations.getCorePref(
+  async init() {
+    this._showCondensed = await browser.conversations.getCorePref(
       "mail.showCondensedAddresses"
     );
     browser.conversations.onCorePrefChanged.addListener(() => {
@@ -31,27 +31,40 @@ export class Contacts {
       return Contacts.enrichWithName(this._colorCache.get(key), name);
       // return new ContactFromAB(name, email, this._colorCache.get(email));
     }
-    //
-    // // Nothing cached, so we must look it up.
-    // let matchingCards = [];
-    // // See #1492. This attempts to catch errors from quickSearch that can
-    // // happen if there are broken address books.
-    // try {
-    //   matchingCards = await browser.contacts.quickSearch(this._email);
-    // } catch (ex) {
-    //   console.error(ex);
-    // }
-    // let card = matchingCards.length
-    //   ? {
-    //       ...matchingCards[0].properties,
-    //       id: matchingCards[0].id,
-    //     }
-    //   : null;
+
+    // Nothing cached, so we must look it up.
+    let matchingCards = [];
+    // See #1492. This attempts to catch errors from quickSearch that can
+    // happen if there are broken address books.
+    try {
+      matchingCards = await browser.contacts.quickSearch(email);
+    } catch (ex) {
+      console.error(ex);
+    }
+    let identityEmails = await this._getIdentityEmails();
+    if (matchingCards.length) {
+      let contact = new Contact(name, email, {
+        ...matchingCards[0].properties,
+        id: matchingCards[0].id,
+      });
+      for (let contactEmail of contact.emails) {
+        let data = contact.getData(
+          contactEmail,
+          position,
+          identityEmails,
+          this._showCondensed
+        );
+        this._cache.set(contactEmail, data);
+      }
+      return this._cache.get(key);
+    }
+
     let contact = new Contact(name, email);
     let data = contact.getData(
       email,
       position,
-      await this._getIdentityEmails()
+      identityEmails,
+      this._showCondensed
     );
     this._colorCache.set(key, data);
 
@@ -78,14 +91,14 @@ export class Contacts {
 }
 
 class Contact {
-  constructor(name, email, color, card) {
+  constructor(name, email, card = null, color = null) {
     // Initialise to the original email, but it may be changed in fetch().
     this.emails = [email];
     this.color = color || this._freshColor(email);
 
     this._name = name; // Initially, the displayed name. Might be enhanced later.
     this._email = email; // The original email. Use to pick a gravatar.
-    this._card = null;
+    this._card = card;
     this._useCardName = false;
 
     this._determineDisplayNameAndEmail();

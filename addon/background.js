@@ -27,6 +27,7 @@ class Background {
       }
     );
 
+    await this._contacts.init();
     await this._prefs.init();
     await this._uiHandler.init();
     await this._window.init();

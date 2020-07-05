@@ -21,6 +21,12 @@ const SUPPORTED_BASE_APIS = [
   "addressBooks",
 ];
 
+const SUPPORTED_BACKGROUND_APIS = [
+  // These are calls to the background scripts, at the moment they can't be used
+  // from the async API.
+  "_contacts",
+];
+
 class _BrowserSim {
   setBrowserListener(listener, context) {
     if (!listener) {
@@ -45,7 +51,10 @@ class _BrowserSim {
     let { extension } = this._context;
     const browser = {};
     const self = this;
-    for (const apiName of SUPPORTED_BASE_APIS) {
+    for (const apiName of [
+      ...SUPPORTED_BASE_APIS,
+      ...SUPPORTED_BACKGROUND_APIS,
+    ]) {
       if (apiName == "i18n") {
         let api = extension.apiManager.getAPI(
           apiName,

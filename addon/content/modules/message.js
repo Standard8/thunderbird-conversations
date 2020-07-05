@@ -84,10 +84,6 @@ const { PluginHelpers } = ChromeUtils.import(
   "chrome://conversations/content/modules/plugins/helpers.js",
   {}
 );
-const { Contacts } = ChromeUtils.import(
-  "chrome://conversations/content/modules/contact.js",
-  {}
-);
 const { Prefs } = ChromeUtils.import(
   "chrome://conversations/content/modules/prefs.js",
   {}
@@ -397,18 +393,13 @@ class Message {
       // Not using Promise.all here as we want to let the contact manager
       // get the data for the caching to work properly.
       contacts.push([
-        await this._conversation._contactManager.getContactFromNameAndEmail(
-          d.name,
-          d.email
-        ),
+        await browser._contacts.get(d.name, d.email, "to"),
         d.email,
       ]);
     }
     this._contacts = this._contacts.concat(contacts);
-    // false means "no colors"
-    return Promise.all(
-      contacts.map(([x, email]) => x.toTmplData(Contacts.kTo, email))
-    );
+    return Promise.all(contacts.map(([x]) => x));
+    // return Promise.all(contacts.map(([x, email]) => x.toTmplData("to", email)));
   }
 
   async toReactData() {
@@ -452,15 +443,12 @@ class Message {
 
     // 1) Generate Contact objects
     let contactFrom = [
-      await this._conversation._contactManager.getContactFromNameAndEmail(
-        this._from.name,
-        this._from.email
-      ),
+      await browser._contacts.get(this._from.name, this._from.email, "from"),
       this._from.email,
     ];
     this._contacts.push(contactFrom);
-    // true means "with colors"
-    data.from = await contactFrom[0].toTmplData(Contacts.kFrom, contactFrom[1]);
+    data.from = contactFrom[0];
+    // data.from = await contactFrom[0].toTmplData("from", contactFrom[1]);
     data.from.separator = "";
 
     data.to = await this.getContactsFrom(this._to);

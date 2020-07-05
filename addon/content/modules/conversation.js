@@ -12,7 +12,6 @@ const { XPCOMUtils } = ChromeUtils.import(
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   BrowserSim: "chrome://conversations/content/modules/browserSim.js",
-  ContactManager: "chrome://conversations/content/modules/contact.js",
   groupArray: "chrome://conversations/content/modules/misc.js",
   MailServices: "resource:///modules/MailServices.jsm",
   MessageFromDbHdr: "chrome://conversations/content/modules/message.js",
@@ -180,7 +179,6 @@ function Conversation(
   counter,
   isInTab = false
 ) {
-  this._contactManager = new ContactManager();
   this._window = win;
   this._isInTab = isInTab;
   // This is set by the monkey-patch which knows whether we were viewing a
@@ -594,9 +592,7 @@ Conversation.prototype = {
       newMsgs.map((x) => x.debug + " " + getMessageId(x)).join(" ")
     );
 
-    // All your messages are belong to us. This is especially important so
-    //  that contacts query the right _contactManager through their parent
-    //  Message.
+    // All your messages are belong to us.
     for (let x of newMsgs) {
       x.message._conversation = this;
     }
