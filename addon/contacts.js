@@ -15,6 +15,44 @@ export class Contacts {
     browser.conversations.onCorePrefChanged.addListener(() => {
       browser.conversations.resetMessagePane().catch(console.error);
     }, "mail.showCondensedAddresses");
+    browser.contacts.onCreated.addListener((node, id) => {
+      // If the color cache has the email, drop it so that we check the
+      // address book next time we need it.
+      if (this._colorCache.has(node.properties.PrimaryEmail)) {
+        this._colorCache.delete(node.properties.PrimaryEmail);
+      }
+      if (this._colorCache.has(node.properties.SecondEmail)) {
+        this._colorCache.delete(node.properties.SecondEmail);
+      }
+    });
+    browser.contacts.onUpdated.addListener((node) => {
+      // If the cache has the email, drop it so that we check the
+      // address book next time we need it.
+      if (this._cache.has(node.properties.PrimaryEmail)) {
+        this._cache.delete(node.properties.PrimaryEmail);
+      }
+      if (this._cache.has(node.properties.SecondEmail)) {
+        this._cache.delete(node.properties.SecondEmail);
+      }
+    });
+    browser.contacts.onDeleted.addListener((id) => {
+      // If the color cache has the email, drop it so that we check the
+      // address book next time we need it.
+      let emails = [];
+      for (let contact of this._cache.values()) {
+        if (contact.contactId == id) {
+          emails.push(contact.email);
+        }
+      }
+      for (let email of emails) {
+        if (this._cache.has(email)) {
+          this._cache.delete(email);
+        }
+        if (this._cache.has(email)) {
+          this._cache.delete(email);
+        }
+      }
+    });
   }
 
   async get(name, email, position) {
@@ -29,7 +67,6 @@ export class Contacts {
       // It is in the color cache, so we know that we don't have an address
       // book entry for it, so just form a contact from what we have.
       return Contacts.enrichWithName(this._colorCache.get(key), name);
-      // return new ContactFromAB(name, email, this._colorCache.get(email));
     }
 
     // Nothing cached, so we must look it up.

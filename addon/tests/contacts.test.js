@@ -80,30 +80,43 @@ describe("Getting unknown contacts", () => {
 
 describe("Getting known contacts", () => {
   let contacts = new Contacts();
+  let listeners = new Map();
 
   beforeAll(async () => {
+    jest
+      .spyOn(browser.contacts.onCreated, "addListener")
+      .mockImplementation((listener) => listeners.set("created", listener));
+    jest
+      .spyOn(browser.contacts.onUpdated, "addListener")
+      .mockImplementation((listener) => listeners.set("updated", listener));
+    jest
+      .spyOn(browser.contacts.onDeleted, "addListener")
+      .mockImplementation((listener) => listeners.set("deleted", listener));
     await contacts.init();
   });
 
   beforeEach(() => {
-    jest.spyOn(browser.contacts, "quickSearch").mockImplementation(() =>
-      Promise.resolve([
-        {
-          id: "1",
-          properties: {
-            FirstName: "first",
-            LastName: "last",
-            DisplayName: "contact name",
-            PrimaryEmail: "contact@example.com",
-            SecondEmail: "Second@example.com",
-            PreferDisplayName: "1",
+    jest.spyOn(browser.contacts, "quickSearch").mockImplementation((email) => {
+      if (email == "contact@example.com" || email == "Second@example.com") {
+        return Promise.resolve([
+          {
+            id: "1",
+            properties: {
+              FirstName: "first",
+              LastName: "last",
+              DisplayName: "contact name",
+              PrimaryEmail: "contact@example.com",
+              SecondEmail: "Second@example.com",
+              PreferDisplayName: "1",
+            },
+            type: "contact",
+            parentId: "2",
+            readOnly: false,
           },
-          type: "contact",
-          parentId: "2",
-          readOnly: false,
-        },
-      ])
-    );
+        ]);
+      }
+      return Promise.resolve([]);
+    });
   });
 
   afterEach(() => {
@@ -160,6 +173,130 @@ describe("Getting known contacts", () => {
     });
 
     expect(browser.contacts.quickSearch).not.toHaveBeenCalled();
+  });
+
+  test("should correctly handle adding a contact", async () => {
+    // Ensure the cache is primed.
+    await expect(
+      contacts.get("", "notab@example.com", "from")
+    ).resolves.toEqual({
+      name: "notab@example.com",
+      initials: "NO",
+      displayEmail: "",
+      tooltipName: "",
+      email: "notab@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: null,
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(246, 70%, 60%)" },
+    });
+    let newContact = {
+      id: "2",
+      properties: {
+        FirstName: "first",
+        LastName: "last",
+        DisplayName: "not ab",
+        PrimaryEmail: "notab@example.com",
+        SecondEmail: "",
+        PreferDisplayName: "1",
+      },
+      type: "contact",
+      parentId: "2",
+      readOnly: false,
+    };
+
+    listeners.get("created")(newContact);
+    jest
+      .spyOn(browser.contacts, "quickSearch")
+      .mockImplementation(() => Promise.resolve([newContact]));
+
+    await expect(
+      contacts.get("", "notab@example.com", "from")
+    ).resolves.toEqual({
+      name: "not ab",
+      initials: "NA",
+      displayEmail: "",
+      tooltipName: "not ab",
+      email: "notab@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: "2",
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(246, 70%, 60%)" },
+    });
+  });
+
+  test("should update the contact if it changes", async () => {
+    // Ensure the cache is primed.
+    await contacts.get("", "contact@example.com", "from");
+    let newContact = {
+      id: "1",
+      properties: {
+        FirstName: "first",
+        LastName: "last",
+        DisplayName: "new display",
+        PrimaryEmail: "contact@example.com",
+        SecondEmail: "Second@example.com",
+        PreferDisplayName: "1",
+      },
+      type: "contact",
+      parentId: "2",
+      readOnly: false,
+    };
+
+    listeners.get("updated")(newContact);
+    jest
+      .spyOn(browser.contacts, "quickSearch")
+      .mockImplementation(() => Promise.resolve([newContact]));
+
+    await expect(
+      contacts.get("", "contact@example.com", "from")
+    ).resolves.toEqual({
+      name: "new display",
+      initials: "ND",
+      displayEmail: "",
+      tooltipName: "new display",
+      email: "contact@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: "1",
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(4, 70%, 46%)" },
+    });
+  });
+
+  test("should remove deleted contacts from the cache", async () => {
+    // Ensure the cache is primed.
+    await expect(
+      contacts.get("", "contact@example.com", "from")
+    ).resolves.toEqual({
+      name: "new display",
+      initials: "ND",
+      displayEmail: "",
+      tooltipName: "new display",
+      email: "contact@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: "1",
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(4, 70%, 46%)" },
+    });
+
+    listeners.get("deleted")("1");
+    jest
+      .spyOn(browser.contacts, "quickSearch")
+      .mockImplementation(() => Promise.resolve([]));
+
+    await expect(
+      contacts.get("", "contact@example.com", "from")
+    ).resolves.toEqual({
+      name: "contact@example.com",
+      initials: "CO",
+      displayEmail: "",
+      tooltipName: "",
+      email: "contact@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: null,
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(4, 70%, 46%)" },
+    });
   });
 });
 

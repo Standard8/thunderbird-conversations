@@ -123,6 +123,15 @@ if (!browser.contacts) {
     quickSearch() {
       return [];
     },
+    onCreated: {
+      addListener() {},
+    },
+    onUpdated: {
+      addListener() {},
+    },
+    onDeleted: {
+      addListener() {},
+    },
   };
 }
 
