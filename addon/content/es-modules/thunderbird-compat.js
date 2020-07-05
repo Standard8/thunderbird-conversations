@@ -99,6 +99,9 @@ if (!browser.conversations) {
       }
       return undefined;
     },
+    resetMessagePane() {
+      return Promise.resolve();
+    },
     undoCustomizations() {},
     onCorePrefChanged: {
       addListener() {},

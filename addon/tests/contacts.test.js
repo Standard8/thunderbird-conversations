@@ -300,6 +300,74 @@ describe("Getting known contacts", () => {
   });
 });
 
+describe("Test show condensed addresses", () => {
+  let contacts = new Contacts();
+  let listener;
+
+  beforeAll(async () => {
+    jest
+      .spyOn(browser.conversations.onCorePrefChanged, "addListener")
+      .mockImplementation((l) => (listener = l));
+    await contacts.init();
+    jest.spyOn(browser.conversations, "resetMessagePane");
+    jest.spyOn(browser.contacts, "quickSearch").mockImplementation((email) => {
+      if (email == "contact@example.com" || email == "Second@example.com") {
+        return Promise.resolve([
+          {
+            id: "1",
+            properties: {
+              FirstName: "first",
+              LastName: "last",
+              DisplayName: "contact name",
+              PrimaryEmail: "contact@example.com",
+              SecondEmail: "Second@example.com",
+              PreferDisplayName: "1",
+            },
+            type: "contact",
+            parentId: "2",
+            readOnly: false,
+          },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+  });
+
+  test("should respect the showCondensedAddresses preference", async () => {
+    await expect(
+      contacts.get("", "contact@example.com", "from")
+    ).resolves.toEqual({
+      name: "contact name",
+      initials: "CN",
+      displayEmail: "",
+      tooltipName: "contact name",
+      email: "contact@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: "1",
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(4, 70%, 46%)" },
+    });
+
+    listener(false);
+
+    expect(browser.conversations.resetMessagePane).toHaveBeenCalled();
+
+    await expect(
+      contacts.get("", "contact@example.com", "from")
+    ).resolves.toEqual({
+      name: "contact name",
+      initials: "CN",
+      displayEmail: "contact@example.com",
+      tooltipName: "contact name",
+      email: "contact@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: "1",
+      extra: "",
+      colorStyle: { backgroundColor: "hsl(4, 70%, 46%)" },
+    });
+  });
+});
+
 describe("Test contact initials", () => {
   let contacts = new Contacts();
 

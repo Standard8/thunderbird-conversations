@@ -12,9 +12,12 @@ export class Contacts {
     this._showCondensed = await browser.conversations.getCorePref(
       "mail.showCondensedAddresses"
     );
-    browser.conversations.onCorePrefChanged.addListener(() => {
+    browser.conversations.onCorePrefChanged.addListener((value) => {
       browser.conversations.resetMessagePane().catch(console.error);
+      this._showCondensed = value;
+      this._cache.clear();
     }, "mail.showCondensedAddresses");
+
     browser.contacts.onCreated.addListener((node, id) => {
       // If the color cache has the email, drop it so that we check the
       // address book next time we need it.
@@ -169,7 +172,6 @@ class Contact {
       extra = this._email;
     }
     const displayEmail = name != email ? email : "";
-    const skipEmail = this._card && showCondensed;
     let tooltipName = this._name || this._email;
     if (hasIdentity) {
       tooltipName = browser.i18n.getMessage("message.meFromMeToSomeone");
@@ -178,7 +180,7 @@ class Contact {
     return {
       name,
       initials: this.getInitials(name),
-      displayEmail: skipEmail ? "" : displayEmail,
+      displayEmail: this._card && showCondensed ? "" : displayEmail,
       tooltipName: tooltipName != email ? tooltipName : "",
       email,
       avatar: this.avatar,
