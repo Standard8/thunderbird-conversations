@@ -2,12 +2,14 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 
+import { Contacts } from "./contacts.js";
 import { Prefs } from "./prefs.js";
 import { UIHandler } from "./uiHandler.js";
 import { Window } from "./window.js";
 
 class Background {
   constructor() {
+    this._contacts = new Contacts();
     this._prefs = new Prefs();
     this._uiHandler = new UIHandler();
     this._window = new Window();

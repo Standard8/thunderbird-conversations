@@ -93,8 +93,24 @@ if (!browser.tabs) {
 
 if (!browser.conversations) {
   browser.conversations = {
+    getCorePref() {},
     undoCustomizations() {},
+    onCorePrefChanged: {
+      addListener() {},
+    },
   };
+}
+
+if (!browser.convContacts) {
+  browser.convContacts = {
+    async getIdentityEmails() {
+      return [];
+    },
+  };
+}
+
+if (!browser.accounts) {
+  browser.accounts = {};
 }
 
 export { browser };
