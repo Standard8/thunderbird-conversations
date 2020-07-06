@@ -172,16 +172,11 @@ class Contact {
       extra = this._email;
     }
     const displayEmail = name != email ? email : "";
-    let tooltipName = this._name || this._email;
-    if (hasIdentity) {
-      tooltipName = browser.i18n.getMessage("message.meFromMeToSomeone");
-    }
 
     return {
       name,
       initials: this.getInitials(name),
       displayEmail: this._card && showCondensed ? "" : displayEmail,
-      tooltipName: tooltipName != email ? tooltipName : "",
       email,
       avatar: this.avatar,
       contactId: this._card ? this._card.id : null,
