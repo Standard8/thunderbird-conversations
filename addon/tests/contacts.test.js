@@ -8,6 +8,9 @@
 const { esmImport, browser } = require("./utils");
 
 global.browser = browser;
+browser.i18n = {
+  getMessage() {},
+};
 
 const { Contacts } = esmImport("../contacts.js");
 
@@ -351,6 +354,51 @@ describe("Test show condensed addresses", () => {
       contactId: "1",
       extra: "",
       colorStyle: { backgroundColor: "hsl(4, 70%, 46%)" },
+    });
+  });
+});
+
+describe("Test identities", () => {
+  let contacts = new Contacts();
+
+  beforeAll(async () => {
+    await contacts.init();
+    jest
+      .spyOn(browser.convContacts, "getIdentityEmails")
+      .mockImplementation(async () => ["identity@example.com"]);
+    console.log(browser.i18n);
+    jest.spyOn(browser.i18n, "getMessage").mockImplementation((m) => m);
+  });
+
+  test("should replace the name with 'me' for from", async () => {
+    await expect(
+      contacts.get("", "identity@example.com", "from")
+    ).resolves.toEqual({
+      name: "message.meFromMeToSomeone",
+      initials: "MM",
+      displayEmail: "identity@example.com",
+      tooltipName: "message.meFromMeToSomeone",
+      email: "identity@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: null,
+      extra: "identity@example.com",
+      colorStyle: { backgroundColor: "hsl(115, 70%, 27%)" },
+    });
+  });
+
+  test("should replace the name with 'me' for to", async () => {
+    await expect(
+      contacts.get("", "identity@example.com", "to")
+    ).resolves.toEqual({
+      name: "message.meFromSomeoneToMe",
+      initials: "MM",
+      displayEmail: "identity@example.com",
+      tooltipName: "message.meFromSomeoneToMe",
+      email: "identity@example.com",
+      avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
+      contactId: null,
+      extra: "identity@example.com",
+      colorStyle: { backgroundColor: "hsl(115, 70%, 27%)" },
     });
   });
 });
