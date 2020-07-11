@@ -67,7 +67,7 @@ describe("Getting unknown contacts", () => {
       contacts.get("my name", "test@example.com", "from")
     ).resolves.toEqual({
       name: "my name",
-      initials: "TE",
+      initials: "MN",
       displayEmail: "",
       email: "test@example.com",
       avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
@@ -377,7 +377,6 @@ describe("Test identities", () => {
       name: "message.meFromMeToSomeone",
       initials: "MM",
       displayEmail: "identity@example.com",
-      tooltipName: "message.meFromMeToSomeone",
       email: "identity@example.com",
       avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
       contactId: null,
@@ -393,7 +392,6 @@ describe("Test identities", () => {
       name: "message.meFromSomeoneToMe",
       initials: "MM",
       displayEmail: "identity@example.com",
-      tooltipName: "message.meFromSomeoneToMe",
       email: "identity@example.com",
       avatar: "chrome://messenger/skin/addressbook/icons/contact-generic.png",
       contactId: null,

@@ -64,12 +64,12 @@ export class Contacts {
     // Might change in the future... who knows? ...
     let key = email;
     if (this._cache.has(key)) {
-      return Contacts.enrichWithName(this._cache.get(key), name);
+      return Contacts.enrichWithName(this._cache.get(key), name, position);
     }
     if (this._colorCache.has(key)) {
       // It is in the color cache, so we know that we don't have an address
       // book entry for it, so just form a contact from what we have.
-      return Contacts.enrichWithName(this._colorCache.get(key), name);
+      return Contacts.enrichWithName(this._colorCache.get(key), name, position);
     }
 
     // Nothing cached, so we must look it up.
@@ -90,7 +90,6 @@ export class Contacts {
       for (let contactEmail of contact.emails) {
         let data = contact.getData(
           contactEmail,
-          position,
           identityEmails,
           this._showCondensed
         );
@@ -98,18 +97,13 @@ export class Contacts {
           this._cache.set(contactEmail.toLowerCase(), data);
         }
       }
-      return this._cache.get(key);
+      return Contacts.enrichWithName(this._cache.get(key), name, position);
     }
 
     let contact = new Contact(name, email);
-    let data = contact.getData(
-      email,
-      position,
-      identityEmails,
-      this._showCondensed
-    );
+    let data = contact.getData(email, identityEmails, this._showCondensed);
     this._colorCache.set(key, data);
-    return data;
+    return Contacts.enrichWithName(data, name, position);
   }
 
   async _getIdentityEmails() {
@@ -123,11 +117,18 @@ export class Contacts {
     return this._identityEmails;
   }
 
-  static enrichWithName(contactData, name) {
-    if ((contactData.name == contactData.email || !contactData.name) && name) {
-      contactData.name = name;
+  static enrichWithName(contactData, name, position) {
+    let data = { ...contactData };
+    if (data.extra) {
+      data.name =
+        position === "from"
+          ? browser.i18n.getMessage("message.meFromMeToSomeone")
+          : browser.i18n.getMessage("message.meFromSomeoneToMe");
+    } else if ((data.name == data.email || !data.name) && name) {
+      data.name = name;
     }
-    return contactData;
+    data.initials = Contact.getInitials(data.name);
+    return data;
   }
 }
 
@@ -138,7 +139,7 @@ class Contact {
     this.color = color || this._freshColor(email);
 
     this._name = name; // Initially, the displayed name. Might be enhanced later.
-    this._email = email; // The original email. Use to pick a gravatar.
+    this._email = email; // The original email.
     this._card = card;
     this._useCardName = false;
 
@@ -150,37 +151,25 @@ class Contact {
    *
    * @param {string} email
    *  The specific email to use for the contact.
-   * @param {string} position
-   *  If the contact is in the "from" or "to" position on the email.
    * @param {array} identityEmails
    *  The array of identity emails.
    * @param {boolean} showCondensed
    *  True if we are showing condensed addresses.
    */
-  getData(email, position, identityEmails, showCondensed) {
+  getData(email, identityEmails, showCondensed) {
     const lcEmail = this._email.toLowerCase();
     const hasIdentity = identityEmails.find((e) => e == lcEmail);
 
-    // `name` and `extra` are the only attributes that depend on `position`
     let name = this._name || this._email;
-    let extra = "";
-    if (hasIdentity) {
-      name =
-        position === "from"
-          ? browser.i18n.getMessage("message.meFromMeToSomeone")
-          : browser.i18n.getMessage("message.meFromSomeoneToMe");
-      extra = this._email;
-    }
     const displayEmail = name != email ? email : "";
 
     return {
       name,
-      initials: this.getInitials(name),
       displayEmail: this._card && showCondensed ? "" : displayEmail,
       email,
       avatar: this.avatar,
       contactId: this._card ? this._card.id : null,
-      extra,
+      extra: hasIdentity ? this._email : "",
       colorStyle: { backgroundColor: this.color },
     };
   }
@@ -278,7 +267,7 @@ class Contact {
    * @param {string} name
    * @returns {string}
    */
-  getInitials(name) {
+  static getInitials(name) {
     name = name.trim().split("@")[0];
     let words = name.split(/[ .\-_]/).filter(function (word) {
       return word;
@@ -289,14 +278,14 @@ class Contact {
       initials = words[0].substr(0, 2);
     } else if (n > 1) {
       initials =
-        this.fixedCharAt(words[0], 0) + this.fixedCharAt(words[n - 1], 0);
+        Contact.fixedCharAt(words[0], 0) + Contact.fixedCharAt(words[n - 1], 0);
     }
     return initials.toUpperCase();
   }
 
   // Taken from
   // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/charAt#Fixing_charAt()_to_support_non-Basic-Multilingual-Plane_(BMP)_characters
-  fixedCharAt(str, idx) {
+  static fixedCharAt(str, idx) {
     var ret = "";
     str += "";
     var end = str.length;
