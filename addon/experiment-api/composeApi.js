@@ -72,7 +72,7 @@ var convCompose = class extends ExtensionCommon.ExtensionAPI {
               },
             };
 
-            let body = details.body;
+            let body = details.body || "";
             if (!body.endsWith("\n")) {
               body += "\n";
             }
