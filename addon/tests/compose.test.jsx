@@ -77,6 +77,7 @@ describe("Compose Reducer and Actions tests", () => {
       from: "id3@example.com",
       identityId: "id3",
       email: "id3@example.com",
+      modified: false,
     });
   });
 
@@ -103,9 +104,13 @@ describe("Compose Reducer and Actions tests", () => {
 
 describe("Compose full page tests", () => {
   let mockedSend;
+  let main;
 
   beforeEach(() => {
     mockedSend = jest.spyOn(browser.convCompose, "send");
+    main = enzyme.mount(<Main />);
+
+    waitForComponentToPaint(main);
   });
 
   afterEach(() => {
@@ -113,10 +118,6 @@ describe("Compose full page tests", () => {
   });
 
   test("A message can be sent", async () => {
-    const main = enzyme.mount(<Main />);
-
-    waitForComponentToPaint(main);
-
     const inputs = main.find(TextBox);
     for (let i = 0; i < inputs.length; i++) {
       const inputBox = inputs.at(i);
@@ -139,6 +140,23 @@ describe("Compose full page tests", () => {
       to: "to",
       subject: "subject",
       body: "testArea",
+    });
+  });
+
+  test("Modifying a field sets the modififed flag", async () => {
+    await store.dispatch(actions.resetStore());
+
+    const inputs = main.find(TextBox);
+    const inputBox = inputs.at(0);
+    inputBox.find("input").simulate("change", { target: { value: "a" } });
+
+    // Should have correctly set up the initial values.
+    expect(store.getState()).toStrictEqual({
+      from: "a",
+      body: undefined,
+      modified: true,
+      subject: undefined,
+      to: undefined,
     });
   });
 });

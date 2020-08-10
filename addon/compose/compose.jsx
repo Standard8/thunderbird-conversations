@@ -14,12 +14,30 @@ import { TextArea, TextBox } from "./composeFields.js";
 //
 const { createSlice, configureStore } = RTK;
 
+const initialState = {
+  modified: false,
+};
+
 const composeSlice = createSlice({
   name: "compose",
-  initialState: {},
+  initialState,
   reducers: {
     setFromDetails(state, { payload }) {
-      return { ...state, ...payload };
+      let userModified = payload.userModified;
+      delete payload.userModified;
+      if (!userModified || state.modified) {
+        return { ...state, ...payload };
+      }
+      for (let [k, v] of Object.entries(payload)) {
+        if (state[k] != v) {
+          return { ...state, ...payload, modified: true };
+        }
+      }
+      // If we get here, nothing changed.
+      return state;
+    },
+    resetStore() {
+      return initialState;
     },
   },
 });
@@ -42,6 +60,7 @@ export const actions = {
 
       dispatch(
         composeSlice.actions.setFromDetails({
+          userModified: false,
           from: identityDetail.email,
           identityId: identityDetail.id,
           email: identityDetail.email,
@@ -51,12 +70,22 @@ export const actions = {
   },
   setValue(name, value) {
     return async function (dispatch, getState) {
+      let { from, to, subject, body } = getState();
       dispatch(
         composeSlice.actions.setFromDetails({
-          ...getState(),
+          from,
+          to,
+          subject,
+          body,
           [name]: value,
+          userModified: true,
         })
       );
+    };
+  },
+  resetStore() {
+    return async (dispatch) => {
+      dispatch(composeSlice.actions.resetStore());
     };
   },
   sendMessage() {
@@ -114,6 +143,21 @@ function _Compose({ fieldsInfo, details, setValue, sendMessage }) {
   function onSend() {
     sendMessage();
   }
+
+  // Warn about unloading
+  function checkBeforeUnload(event) {
+    if (details.modified) {
+      event.preventDefault();
+    }
+  }
+
+  React.useEffect(() => {
+    window.addEventListener("beforeunload", checkBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", checkBeforeUnload);
+    };
+  });
+
   return (
     <div className="compose">
       {fieldsInfo.map((Item, i) => (
