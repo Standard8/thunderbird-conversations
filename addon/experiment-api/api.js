@@ -12,6 +12,7 @@ XPCOMUtils.defineLazyModuleGetters(this, {
   ExtensionCommon: "resource://gre/modules/ExtensionCommon.jsm",
   GlodaAttrProviders:
     "chrome://conversations/content/modules/plugins/glodaAttrProviders.js",
+  MailServices: "resource:///modules/MailServices.jsm",
   makeFriendlyDateAgo: "resource:///modules/TemplateUtils.jsm",
   MsgHdrToMimeMessage: "resource:///modules/gloda/MimeMessage.jsm",
   msgHdrGetUri: "chrome://conversations/content/modules/misc.js",
@@ -705,6 +706,16 @@ var conversations = class extends ExtensionCommon.ExtensionAPI {
         },
         async makeFriendlyDateAgo(date) {
           return makeFriendlyDateAgo(new Date(date));
+        },
+        async parseEncodedHeader(line) {
+          return MailServices.headerParser
+            .parseEncodedHeader(line)
+            .map((addr) => {
+              return {
+                email: addr.email,
+                name: addr.name,
+              };
+            });
         },
         onCallAPI: new ExtensionCommon.EventManager({
           context,

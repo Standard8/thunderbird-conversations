@@ -487,6 +487,19 @@
             "description": "The date in milliseconds."
           }
         ]
+      },
+      {
+        "name": "parseEncodedHeader",
+        "type": "function",
+        "description": "Parses a header string.",
+        "async": true,
+        "parameters": [
+          {
+            "name": "line",
+            "type": "string",
+            "description": "The header line to parse."
+          }
+        ]
       }
     ],
     "events": [

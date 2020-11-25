@@ -319,7 +319,7 @@ async function registerColumn(
       // Add all the people found in one of the msgHdr's properties.
       let addPeople = function (prop, pos) {
         let line = msgHdr[prop];
-        for (let x of parseMimeLine(line, true)) {
+        for (let x of parseMimeLine(line)) {
           people.add(format(x, pos));
         }
       };
@@ -423,12 +423,10 @@ function joinWordList(aElements, commaSeparator, andSeparator) {
  * Wraps the low-level header parser stuff.
  * @param {String} mimeLine
  *   A line that looks like "John &lt;john@cheese.com&gt;, Jane &lt;jane@wine.com&gt;"
- * @param {Boolean} [dontFix]
- *   Defaults to false. Shall we return an empty array in case aMimeLine is empty?
  * @return {Array}
  *   A list of { email, name } objects
  */
-function parseMimeLine(mimeLine, dontFix) {
+function parseMimeLine(mimeLine) {
   if (mimeLine == null) {
     console.debug("Empty aMimeLine?!!");
     return [];
@@ -439,14 +437,10 @@ function parseMimeLine(mimeLine, dontFix) {
       return {
         email: addr.email,
         name: addr.name,
-        fullName: addr.toString(),
       };
     });
   }
-  if (dontFix) {
-    return [];
-  }
-  return [{ email: "", name: "-", fullName: "-" }];
+  return [];
 }
 
 /**
