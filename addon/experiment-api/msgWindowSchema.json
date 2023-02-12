@@ -7,7 +7,13 @@
         "type": "function",
         "description": "Reloads the multi message views if they are showing the stub page.",
         "async": true,
-        "parameters": []
+        "parameters": [
+          {
+            "name": "tabId",
+            "type": "number",
+            "description": "The id of the tab."
+          }
+        ]
       },
       {
         "name": "openNewWindow",
@@ -144,7 +150,14 @@
         "name": "onMonkeyPatch",
         "type": "function",
         "description": "Temporary. Fake Listener, actually used for monkey patching various things (With automatic tidy up)",
-        "parameters": []
+        "parameters": [],
+        "extraParameters": [
+          {
+            "name": "tabId",
+            "type": "number",
+            "description": "The id of the tab."
+          }
+        ]
       },
       {
         "name": "onLayoutChange",

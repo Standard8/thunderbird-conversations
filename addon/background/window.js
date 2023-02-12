@@ -14,63 +14,88 @@ export class Window {
   async init() {
     // Set up our monkey patches which aren't really listeners, but this
     // is a good way to manage them.
-    let monkeyPatchListener = () => {};
-    browser.convMsgWindow.onMonkeyPatch.addListener(monkeyPatchListener);
 
-    browser.convMsgWindow.onLayoutChange.addListener(async () => {
-      // Let any stacks unwind and ensure the new layout applies.
-      await new Promise((r) => setTimeout(r, 0));
+    let tabListeners = new Map();
 
-      browser.convMsgWindow.onMonkeyPatch.removeListener(monkeyPatchListener);
-      browser.convMsgWindow.onMonkeyPatch.addListener(monkeyPatchListener);
+    function addTabListener(tabId) {
+      let listener = () => {};
 
-      // Now reload the multi message pane, if necessary, to ensure the stub
-      // page continues to work. This may loose scroll position, but its the
-      // best we can do.
-      await browser.convMsgWindow.maybeReloadMultiMessage();
+      browser.convMsgWindow.onMonkeyPatch.addListener(listener, tabId);
+      tabListeners.set(tabId, listener);
+    }
+
+    for (let tab of await browser.tabs.query({ mailTab: true })) {
+      addTabListener(tab.id);
+    }
+
+    browser.tabs.onCreated.addListener((tab) => {
+      if (tab.mailTab) {
+        addTabListener(tab.id);
+      }
+    });
+    browser.tabs.onRemoved.addListener((tabId) => {
+      let listener = tabListeners.get(tabId);
+      if (!listener) {
+        return;
+      }
+      browser.convMsgWindow.onMonkeyPatch.removeListener(listener);
+      tabListeners.delete(tabId);
     });
 
-    browser.convMsgWindow.onThreadPaneDoubleClick.addListener(
-      async (windowId, msgHdrs) => {
-        for (const hdr of msgHdrs) {
-          const account = await browser.accounts.get(hdr.folder.accountId);
-          if (account.type == "nntp" || account.type == "rss") {
-            return {};
-          }
-        }
-        const urls = [];
-        for (const hdr of msgHdrs) {
-          urls.push(await browser.conversations.getMessageUriForId(hdr.id));
-        }
-        await this.openConversation(windowId, urls);
-        return {
-          cancel: true,
-        };
-      }
-    );
+    // browser.convMsgWindow.onLayoutChange.addListener(async () => {
+    //   // Let any stacks unwind and ensure the new layout applies.
+    //   await new Promise((r) => setTimeout(r, 0));
 
-    browser.convMsgWindow.onThreadPaneMiddleClick.addListener(
-      async (windowId, msgHdrs) => {
-        for (const hdr of msgHdrs) {
-          const account = await browser.accounts.get(hdr.folder.accountId);
-          if (account.type == "nntp" || account.type == "rss") {
-            return {};
-          }
-        }
-        const urls = [];
-        for (const hdr of msgHdrs) {
-          urls.push(await browser.conversations.getMessageUriForId(hdr.id));
-        }
-        const url = this.makeConversationUrl(urls);
-        await browser.conversations.createTab({
-          url,
-          type: "chromeTab",
-        });
-        return {
-          cancel: true,
-        };
-      }
-    );
+    //   browser.convMsgWindow.onMonkeyPatch.removeListener(monkeyPatchListener);
+    //   browser.convMsgWindow.onMonkeyPatch.addListener(monkeyPatchListener);
+
+    //   // Now reload the multi message pane, if necessary, to ensure the stub
+    //   // page continues to work. This may loose scroll position, but its the
+    //   // best we can do.
+    //   await browser.convMsgWindow.maybeReloadMultiMessage();
+    // });
+
+    // browser.convMsgWindow.onThreadPaneDoubleClick.addListener(
+    //   async (windowId, msgHdrs) => {
+    //     for (const hdr of msgHdrs) {
+    //       const account = await browser.accounts.get(hdr.folder.accountId);
+    //       if (account.type == "nntp" || account.type == "rss") {
+    //         return {};
+    //       }
+    //     }
+    //     const urls = [];
+    //     for (const hdr of msgHdrs) {
+    //       urls.push(await browser.conversations.getMessageUriForId(hdr.id));
+    //     }
+    //     await this.openConversation(windowId, urls);
+    //     return {
+    //       cancel: true,
+    //     };
+    //   }
+    // );
+
+    // browser.convMsgWindow.onThreadPaneMiddleClick.addListener(
+    //   async (windowId, msgHdrs) => {
+    //     for (const hdr of msgHdrs) {
+    //       const account = await browser.accounts.get(hdr.folder.accountId);
+    //       if (account.type == "nntp" || account.type == "rss") {
+    //         return {};
+    //       }
+    //     }
+    //     const urls = [];
+    //     for (const hdr of msgHdrs) {
+    //       urls.push(await browser.conversations.getMessageUriForId(hdr.id));
+    //     }
+    //     const url = this.makeConversationUrl(urls);
+    //     await browser.conversations.createTab({
+    //       url,
+    //       type: "chromeTab",
+    //     });
+    //     return {
+    //       cancel: true,
+    //     };
+    //   }
+    // );
 
     browser.runtime.onConnect.addListener((port) => {
       this._handlePort(port);
@@ -132,7 +157,9 @@ export class Window {
       });
     });
 
-    await browser.convMsgWindow.maybeReloadMultiMessage();
+    for (let tab of await browser.tabs.query({ mailTab: true })) {
+      await browser.convMsgWindow.maybeReloadMultiMessage(tab.id);
+    }
   }
 
   _handlePort(port) {

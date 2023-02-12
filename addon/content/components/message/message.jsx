@@ -141,11 +141,11 @@ export class Message extends React.PureComponent {
       this.props.message.expanded &&
       this.props.message.needsLateAttachments
     ) {
-      this.props.dispatch(
-        messageActions.getLateAttachments({
-          id: this.props.message.id,
-        })
-      );
+      // this.props.dispatch(
+      //   messageActions.getLateAttachments({
+      //     id: this.props.message.id,
+      //   })
+      // );
     }
   }
 
