@@ -92,8 +92,13 @@ var convMsgWindow = class extends ExtensionCommon.ExtensionAPI {
         onThreadPaneDoubleClick: new ExtensionCommon.EventManager({
           context,
           name: "convMsgWindow.onThreadPaneDoubleClick",
-          register(fire) {
-            const patchDoubleClick = (win, id) => {
+          register(fire, tabId) {
+            let tabObject = context.extension.tabManager.get(tabId);
+            let contentWin = tabObject.nativeTab.chromeBrowser.contentWindow;
+
+            // TODO: Get this working full if TB needs changes.
+            // xref https://bugzilla.mozilla.org/show_bug.cgi?id=1811646
+            const patchDoubleClick = (win, tabId) => {
               win.oldThreadPaneDoubleClick = win.ThreadPaneDoubleClick;
               win.ThreadPaneDoubleClick = () => {
                 // ThreadPaneDoubleClick calls OnMsgOpenSelectedMessages. We don't want to
@@ -105,7 +110,7 @@ var convMsgWindow = class extends ExtensionCommon.ExtensionAPI {
                 msgHdrs = msgHdrs.map((hdr) => messageManager.convert(hdr));
                 win.MsgOpenSelectedMessages = async () => {
                   let result = await fire
-                    .async(id, msgHdrs)
+                    .async(tabId, msgHdrs)
                     .catch(console.error);
                   if (result?.cancel) {
                     return;
@@ -117,19 +122,16 @@ var convMsgWindow = class extends ExtensionCommon.ExtensionAPI {
               };
             };
 
-            const windowObserver = new WindowObserver(
-              windowManager,
-              patchDoubleClick
+            waitForWindow(tabObject.nativeTab.chromeBrowser.ownerGlobal).then(
+              () => {
+                patchDoubleClick(contentWin, tabId);
+              }
             );
-            monkeyPatchAllWindows(windowManager, patchDoubleClick);
-            Services.ww.registerNotification(windowObserver);
 
             return function () {
-              Services.ww.unregisterNotification(windowObserver);
-              monkeyPatchAllWindows(windowManager, (win, id) => {
-                win.ThreadPaneDoubleClick = win.oldThreadPaneDoubleClick;
-                delete win.oldThreadPaneDoubleClick;
-              });
+              contentWin.ThreadPaneDoubleClick =
+                contentWin.oldThreadPaneDoubleClick;
+              delete contentWin.oldThreadPaneDoubleClick;
             };
           },
         }).api(),
@@ -214,15 +216,7 @@ var convMsgWindow = class extends ExtensionCommon.ExtensionAPI {
                 summarizeThreadHandler(contentWin, tabId, context);
               }
             );
-            // const windowObserver = new WindowObserver(
-            //   tabObject,
-            //   specialPatches
-            // );
-            // monkeyPatchAllWindows(tabObject, specialPatches);
-            // Services.ww.registerNotification(windowObserver);
-
             return function () {
-              console.log("cleanup", tabId);
               let threadPane = contentWin.threadPane;
               threadPane._onSelect = threadPane._oldOnSelect;
               delete threadPane._oldOnSelect;
@@ -233,30 +227,12 @@ var convMsgWindow = class extends ExtensionCommon.ExtensionAPI {
               //   }
               //   win.summarizeThread = win.oldSummarizeThread;
               //   delete win.oldSummarizeThread;
-              //   win.MessageDisplayWidget.prototype.onSelectedMessagesChanged =
-              //     win.originalOnSelectedMessagesChanged;
-              //   delete win.originalOnSelectedMessagesChanged;
               //   // Fake updating the selection to get the message panes in the
               //   // correct states for Conversations having been removed.
               //   win.document
               //     .getElementById("threadTree")
               //     .view.selectionChanged();
               // });
-            };
-          },
-        }).api(),
-        onLayoutChange: new ExtensionCommon.EventManager({
-          context,
-          name: "convMsgWindow.onLayoutChange",
-          register(fire) {
-            let listener = () => fire.async();
-            Services.prefs.addObserver("mail.pane_config.dynamic", listener);
-
-            return () => {
-              Services.prefs.removeObserver(
-                "mail.pane_config.dynamic",
-                listener
-              );
             };
           },
         }).api(),
@@ -355,12 +331,15 @@ function monkeyPatchAllWindows(windowManager, callback, context) {
   }
 }
 
+// TODO: FIX THIS
+// xref https://searchfox.org/comm-central/rev/e14086adbf23a7cc1a4c7e128b5729ce112b9ff9/mail/base/content/msgHdrView.js#497-506
 const remoteContentPatch = (win, id, context) => {
   // Ok, this is slightly tricky. The C++ code notifies the global msgWindow
   //  when content has been blocked, and we can't really afford to just
   //  replace the code, because that would defeat the standard reader (e.g. in
   //  a new tab). So we must find the message in the conversation and notify
   //  it if needed.
+
   win.oldOnMsgHasRemoteContent = win.messageHeaderSink.onMsgHasRemoteContent;
   win.messageHeaderSink.onMsgHasRemoteContent = async function (
     msgHdr,
@@ -472,38 +451,6 @@ const printPatch = (win, winId, context) => {
   win.conversationsPrintController = PrintController;
 };
 
-const specialPatches = (win) => {
-  win.conversationUndoFuncs = [];
-  const messagepane = win.document.getElementById("messagepane");
-
-  win.document
-    .getElementById("multimessage")
-    .setAttribute("context", "mailContext");
-
-  // Because we're not even fetching the conversation when the message pane is
-  //  hidden, we need to trigger it manually when it's un-hidden.
-  let unhideListener = function () {
-    win.summarizeThread(win.gFolderDisplay.selectedMessages);
-  };
-  win.addEventListener("messagepane-unhide", unhideListener, true);
-  win.conversationUndoFuncs.push(() =>
-    win.removeEventListener("messagepane-unhide", unhideListener, true)
-  );
-
-  function fightAboutBlank() {
-    if (messagepane.contentWindow?.location.href == "about:blank") {
-      // Workaround the "feature" that disables the context menu when the
-      // messagepane points to about:blank
-      messagepane.contentWindow.location.href = "about:blank?";
-    }
-  }
-  messagepane.addEventListener("load", fightAboutBlank, true);
-  win.conversationUndoFuncs.push(() =>
-    messagepane.removeEventListener("load", fightAboutBlank, true)
-  );
-  fightAboutBlank();
-};
-
 function isSelectionExpanded(win) {
   const msgIndex = win.gFolderDisplay
     ? win.gFolderDisplay.selectedIndices[0]
@@ -543,9 +490,12 @@ function summarizeThreadHandler(contentWin, tabId, context) {
 
   let threadPane = contentWin.threadPane;
 
+  // Replace Thunderbird's onSelect with our own, so that we can display
+  // our Conversations reader when we need to.
   threadPane._oldOnSelect = threadPane._onSelect;
-
   threadPane._onSelect = async (event) => {
+    contentWin.ClearPendingReadTimer();
+
     if (
       contentWin.paneLayout.messagePaneSplitter.isCollapsed ||
       !contentWin.gDBView
@@ -553,25 +503,34 @@ function summarizeThreadHandler(contentWin, tabId, context) {
       return;
     }
 
+    // TODO: RSS?
     // TODO: Check if messages span multiple threads & if so, defer to
     // _oldOnSelect
-    if (contentWin.gDBView.numSelected > 0) {
-      if (contentWin.webBrowser?.documentURI?.spec != STUB_URI) {
-        contentWin.displayWebPage("chrome://conversations/content/stub.html");
-      }
-
-      let msgs = [];
-      for (let msg of contentWin.gDBView.getSelectedMsgHdrs()) {
-        msgs.push(await context.extension.messageManager.convert(msg));
-      }
-
-      // TODO : Get this working for mail selection.
-      // WORK out the messages to pass to .async.
-      msgsChangedListeners.get(tabId)?.async(msgs);
+    if (contentWin.gDBView.numSelected == 0) {
+      threadPane._oldOnSelect(event);
       return;
     }
-    threadPane._oldOnSelect(event);
+    if (contentWin.webBrowser?.documentURI?.spec != STUB_URI) {
+      contentWin.displayWebPage("chrome://conversations/content/stub.html");
+    }
+
+    let msgs = [];
+    let msgHdrs = contentWin.gDBView.getSelectedMsgHdrs();
+
+    for (let msg of msgHdrs) {
+      if (msgHdrIsRss(msg) || msgHdrIsNntp(msg)) {
+        // If we have any RSS or News messages, defer to Thunderbird's view.
+        threadPane._oldOnSelect(event);
+        return;
+      }
+      msgs.push(await context.extension.messageManager.convert(msg));
+    }
+
+    // TODO : Get this working for mail selection.
+    // WORK out the messages to pass to .async.
+    msgsChangedListeners.get(tabId)?.async(msgs);
   };
+
   //  tabObject.nativeTab.chromeBrowser.ownerGlobal.summarizeThread();
   // let previouslySelectedUris = [];
   // let previousIsSelectionThreaded = null;
@@ -706,66 +665,6 @@ function summarizeThreadHandler(contentWin, tabId, context) {
   //     }
   //   );
   // };
-
-  // // Because we want to replace the standard message reader, we need to always
-  // //  fire up the conversation view instead of deferring to the regular
-  // //  display code. The trick is that re-using the original function's name
-  // //  allows us to intercept the calls to the thread summary in regular
-  // //  situations (where a normal thread summary would kick in) as a
-  // //  side-effect. That means we don't need to hack into gMessageDisplay too
-  // //  much.
-  // win.originalOnSelectedMessagesChanged =
-  //   win.MessageDisplayWidget.prototype.onSelectedMessagesChanged;
-  // win.MessageDisplayWidget.prototype.onSelectedMessagesChanged =
-  //   function _onSelectedMessagesChanged_patched() {
-  //     try {
-  //       if (!this.active) {
-  //         return true;
-  //       }
-  //       win.ClearPendingReadTimer();
-
-  //       let selectedCount = this.folderDisplay.selectedCount;
-  //       // Log.debug(
-  //       //   "Intercepted message load,",
-  //       //   selectedCount,
-  //       //   "message(s) selected"
-  //       // );
-
-  //       if (selectedCount == 0) {
-  //         // So we're not copying the code here. This changes nothing, and the
-  //         // execution stays the same. But if someone (say, the account
-  //         // summary extension) decides to redirect the code to _showSummary
-  //         // in the case of selectedCount == 0 by monkey-patching
-  //         // onSelectedMessagesChanged, we give it a chance to run.
-  //         return win.originalOnSelectedMessagesChanged.call(this);
-  //       } else if (selectedCount == 1) {
-  //         // Here starts the part where we modify the original code.
-  //         let msgHdr = this.folderDisplay.selectedMessage;
-  //         // We can't display NTTP messages and RSS messages properly yet, so
-  //         // leave it up to the standard message reader. If the user explicitely
-  //         // asked for the old message reader, we give up as well.
-  //         if (msgHdrIsRss(msgHdr) || msgHdrIsNntp(msgHdr)) {
-  //           this.singleMessageDisplay = true;
-  //           return false;
-  //         }
-  //         // Otherwise, we create a thread summary.
-  //         // We don't want to call this._showSummary because it has a built-in check
-  //         // for this.folderDisplay.selectedCount and returns immediately if
-  //         // selectedCount == 1
-  //         this.singleMessageDisplay = false;
-  //         this.onDisplayingMessage(this.folderDisplay.selectedMessages[0]);
-  //         win.summarizeThread(this.folderDisplay.selectedMessages, this);
-  //         return true;
-  //       }
-
-  //       // Else defer to showSummary to work it out based on thread selection.
-  //       // (This might be a MultiMessageSummary after all!)
-  //       return this._showSummary();
-  //     } catch (ex) {
-  //       console.error(ex);
-  //     }
-  //     return false;
-  //   };
 }
 
 /**

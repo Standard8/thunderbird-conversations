@@ -7,6 +7,8 @@
  * to manage the message preview correctly.
  */
 export class Window {
+  #tabListeners = new Map();
+
   constructor() {
     this.connectedPorts = new Set();
   }
@@ -15,64 +17,27 @@ export class Window {
     // Set up our monkey patches which aren't really listeners, but this
     // is a good way to manage them.
 
-    let tabListeners = new Map();
-
-    function addTabListener(tabId) {
-      let listener = () => {};
-
-      browser.convMsgWindow.onMonkeyPatch.addListener(listener, tabId);
-      tabListeners.set(tabId, listener);
-    }
-
     for (let tab of await browser.tabs.query({ mailTab: true })) {
-      addTabListener(tab.id);
+      this.#addTabListener(tab.id);
     }
 
     browser.tabs.onCreated.addListener((tab) => {
       if (tab.mailTab) {
-        addTabListener(tab.id);
+        this.#addTabListener(tab.id);
       }
     });
     browser.tabs.onRemoved.addListener((tabId) => {
-      let listener = tabListeners.get(tabId);
-      if (!listener) {
+      let listeners = this.#tabListeners.get(tabId);
+      if (!listeners) {
         return;
       }
-      browser.convMsgWindow.onMonkeyPatch.removeListener(listener);
-      tabListeners.delete(tabId);
+      browser.convMsgWindow.onMonkeyPatch.removeListener(listeners.monkey);
+      browser.convMsgWindow.onThreadPaneDoubleClick.removeListener(
+        listeners.doubleClick,
+        tabId
+      );
+      this.#tabListeners.delete(tabId);
     });
-
-    // browser.convMsgWindow.onLayoutChange.addListener(async () => {
-    //   // Let any stacks unwind and ensure the new layout applies.
-    //   await new Promise((r) => setTimeout(r, 0));
-
-    //   browser.convMsgWindow.onMonkeyPatch.removeListener(monkeyPatchListener);
-    //   browser.convMsgWindow.onMonkeyPatch.addListener(monkeyPatchListener);
-
-    //   // Now reload the multi message pane, if necessary, to ensure the stub
-    //   // page continues to work. This may loose scroll position, but its the
-    //   // best we can do.
-    //   await browser.convMsgWindow.maybeReloadMultiMessage();
-    // });
-
-    // browser.convMsgWindow.onThreadPaneDoubleClick.addListener(
-    //   async (windowId, msgHdrs) => {
-    //     for (const hdr of msgHdrs) {
-    //       const account = await browser.accounts.get(hdr.folder.accountId);
-    //       if (account.type == "nntp" || account.type == "rss") {
-    //         return {};
-    //       }
-    //     }
-    //     const urls = [];
-    //     for (const hdr of msgHdrs) {
-    //       urls.push(await browser.conversations.getMessageUriForId(hdr.id));
-    //     }
-    //     await this.openConversation(windowId, urls);
-    //     return {
-    //       cancel: true,
-    //     };
-    //   }
-    // );
 
     // browser.convMsgWindow.onThreadPaneMiddleClick.addListener(
     //   async (windowId, msgHdrs) => {
@@ -162,11 +127,42 @@ export class Window {
     }
   }
 
+  #addTabListener(tabId) {
+    let listeners = {
+      monkey: () => {},
+      doubleClick: this.doubleClickHandler.bind(this),
+    };
+
+    browser.convMsgWindow.onMonkeyPatch.addListener(listeners.monkey, tabId);
+    browser.convMsgWindow.onThreadPaneDoubleClick.addListener(
+      listeners.doubleClick,
+      tabId
+    );
+    this.#tabListeners.set(tabId, listeners);
+  }
+
   _handlePort(port) {
     this.connectedPorts.add(port);
     port.onDisconnect.addListener((port) => {
       this.connectedPorts.delete(port);
     });
+  }
+
+  async doubleClickHandler(windowId, msgHdrs) {
+    for (const hdr of msgHdrs) {
+      const account = await browser.accounts.get(hdr.folder.accountId);
+      if (account.type == "nntp" || account.type == "rss") {
+        return {};
+      }
+    }
+    const urls = [];
+    for (const hdr of msgHdrs) {
+      urls.push(await browser.conversations.getMessageUriForId(hdr.id));
+    }
+    await this.openConversation(windowId, urls);
+    return {
+      cancel: true,
+    };
   }
 
   async openConversation(windowId, urls) {

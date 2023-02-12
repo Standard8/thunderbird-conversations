@@ -317,7 +317,7 @@ var conversations = class extends ExtensionCommon.ExtensionAPI {
           Services.obs.notifyObservers(null, "startupcache-invalidate");
         },
         async getLateAttachments(id, extraAttachments) {
-          return new Promise((resolve) => {
+          return new Promise((resolve, reject) => {
             const msgHdr = context.extension.messageManager.get(id);
             MsgHdrToMimeMessage(msgHdr, null, (msgHdr, mimeMsg) => {
               if (!mimeMsg) {

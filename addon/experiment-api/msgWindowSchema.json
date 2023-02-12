@@ -107,6 +107,13 @@
             "$ref": "messages.MessageHeader"
           }
         ],
+        "extraParameters": [
+          {
+            "name": "tabId",
+            "type": "number",
+            "description": "The id of the tab."
+          }
+        ],
         "returns": {
           "type": "object",
           "properties": {
@@ -158,12 +165,6 @@
             "description": "The id of the tab."
           }
         ]
-      },
-      {
-        "name": "onLayoutChange",
-        "type": "function",
-        "description": "Temporary. Listens for layout changes.",
-        "parameters": []
       },
       {
         "name": "onMsgHasRemoteContent",
