@@ -43,10 +43,10 @@ XPCOMUtils.defineLazyServiceGetters(lazy, {
  */
 function msgUriToMsgHdr(aUri) {
   try {
-    let messageService = messenger.messageServiceFromURI(aUri);
+    let messageService = MailServices.messageServiceFromURI(aUri);
     return messageService.messageURIToMsgHdr(aUri);
   } catch (e) {
-    console.error("Unable to get ", aUri, " — returning null instead");
+    console.error("Unable to get ", aUri, " — returning null instead", e);
     return null;
   }
 }

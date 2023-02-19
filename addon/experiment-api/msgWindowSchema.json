@@ -91,16 +91,15 @@
         ]
       },
       {
-        "name": "onThreadPaneDoubleClick",
+        "name": "onThreadPaneActivate",
         "type": "function",
-        "description": "Temporary. Listens for double clicks on the thread pane.",
+        "description": "Temporary. Listens for double clicks/enter presses on the thread pane.",
         "parameters": [
           {
-            "name": "window",
+            "name": "tabId",
             "type": "integer",
             "optional": true,
-            "minimum": -2,
-            "description": "The window id."
+            "description": "The tabId id."
           },
           {
             "name": "message",

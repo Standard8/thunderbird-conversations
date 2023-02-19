@@ -89,49 +89,35 @@ var convMsgWindow = class extends ExtensionCommon.ExtensionAPI {
             };
           },
         }).api(),
-        onThreadPaneDoubleClick: new ExtensionCommon.EventManager({
+        onThreadPaneActivate: new ExtensionCommon.EventManager({
           context,
           name: "convMsgWindow.onThreadPaneDoubleClick",
           register(fire, tabId) {
             let tabObject = context.extension.tabManager.get(tabId);
             let contentWin = tabObject.nativeTab.chromeBrowser.contentWindow;
+            let threadPane = contentWin.threadPane;
 
-            // TODO: Get this working full if TB needs changes.
-            // xref https://bugzilla.mozilla.org/show_bug.cgi?id=1811646
-            const patchDoubleClick = (win, tabId) => {
-              win.oldThreadPaneDoubleClick = win.ThreadPaneDoubleClick;
-              win.ThreadPaneDoubleClick = () => {
-                // ThreadPaneDoubleClick calls OnMsgOpenSelectedMessages. We don't want to
-                // replace the whole ThreadPaneDoubleClick function, just the line that
-                // calls OnMsgOpenSelectedMessages in that function. So we do that weird
-                // thing here.
-                let oldMsgOpenSelectedMessages = win.MsgOpenSelectedMessages;
-                let msgHdrs = win.gFolderDisplay.selectedMessages;
-                msgHdrs = msgHdrs.map((hdr) => messageManager.convert(hdr));
-                win.MsgOpenSelectedMessages = async () => {
-                  let result = await fire
-                    .async(tabId, msgHdrs)
-                    .catch(console.error);
-                  if (result?.cancel) {
-                    return;
-                  }
-                  oldMsgOpenSelectedMessages();
-                };
-                win.oldThreadPaneDoubleClick();
-                win.MsgOpenSelectedMessages = oldMsgOpenSelectedMessages;
-              };
+            threadPane._convOldOnItemActivate = threadPane._onItemActivate;
+            threadPane._onItemActivate = (event) => {
+              event.preventDefault();
+              event.stopPropagation();
+
+              (async () => {
+                let msgHdrs = contentWin.gDBView.getSelectedMsgHdrs();
+                let msgs = msgHdrs.map((m) =>
+                  context.extension.messageManager.convert(m)
+                );
+                let result = await fire.async(tabId, msgs);
+                if (result?.cancel) {
+                  return;
+                }
+                contentWin.threadPane._convOldOnItemActivate(event);
+              })();
             };
 
-            waitForWindow(tabObject.nativeTab.chromeBrowser.ownerGlobal).then(
-              () => {
-                patchDoubleClick(contentWin, tabId);
-              }
-            );
-
             return function () {
-              contentWin.ThreadPaneDoubleClick =
-                contentWin.oldThreadPaneDoubleClick;
-              delete contentWin.oldThreadPaneDoubleClick;
+              threadPane._onItemActivate = threadPane._convOldOnItemActivate;
+              delete threadPane._convOldOnItemActivate;
             };
           },
         }).api(),
@@ -494,8 +480,6 @@ function summarizeThreadHandler(contentWin, tabId, context) {
   // our Conversations reader when we need to.
   threadPane._oldOnSelect = threadPane._onSelect;
   threadPane._onSelect = async (event) => {
-    contentWin.ClearPendingReadTimer();
-
     if (
       contentWin.paneLayout.messagePaneSplitter.isCollapsed ||
       !contentWin.gDBView

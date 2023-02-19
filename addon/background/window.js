@@ -32,7 +32,7 @@ export class Window {
         return;
       }
       browser.convMsgWindow.onMonkeyPatch.removeListener(listeners.monkey);
-      browser.convMsgWindow.onThreadPaneDoubleClick.removeListener(
+      browser.convMsgWindow.onThreadPaneActivate.removeListener(
         listeners.doubleClick,
         tabId
       );
@@ -134,7 +134,7 @@ export class Window {
     };
 
     browser.convMsgWindow.onMonkeyPatch.addListener(listeners.monkey, tabId);
-    browser.convMsgWindow.onThreadPaneDoubleClick.addListener(
+    browser.convMsgWindow.onThreadPaneActivate.addListener(
       listeners.doubleClick,
       tabId
     );
@@ -148,8 +148,11 @@ export class Window {
     });
   }
 
-  async doubleClickHandler(windowId, msgHdrs) {
+  async doubleClickHandler(tabId, msgHdrs) {
     for (const hdr of msgHdrs) {
+      if (hdr.folder.type == "drafts" || hdr.folder.type == "templates") {
+        return {};
+      }
       const account = await browser.accounts.get(hdr.folder.accountId);
       if (account.type == "nntp" || account.type == "rss") {
         return {};
@@ -159,6 +162,8 @@ export class Window {
     for (const hdr of msgHdrs) {
       urls.push(await browser.conversations.getMessageUriForId(hdr.id));
     }
+
+    let windowId = (await browser.tabs.get(tabId)).windowId;
     await this.openConversation(windowId, urls);
     return {
       cancel: true,
