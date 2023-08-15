@@ -65,6 +65,19 @@
     ],
     "events": [
       {
+        "name": "onStreamingMessage",
+        "type": "function",
+        "description": "Handles OpenPGP notifications on messages.",
+        "parameters": [],
+        "extraParameters": [
+          {
+            "name": "tabId",
+            "type": "number",
+            "description": "The id of the tab."
+          }
+        ]
+      },
+      {
         "name": "onUpdateSecurityStatus",
         "type": "function",
         "description": "Temporary. Used for listening to security updates on messages.",

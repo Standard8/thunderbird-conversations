@@ -6,6 +6,7 @@
 
 XPCOMUtils.defineLazyModuleGetters(this, {
   EnigmailConstants: "chrome://openpgp/content/modules/constants.jsm",
+  EnigmailVerify: "chrome://openpgp/content/modules/mimeVerify.jsm",
 });
 
 // TODO: Fix this file.
@@ -84,6 +85,83 @@ function getWindow(context, tabId) {
   return win;
 }
 
+let smimeHeaderSink = {
+  signedStatus() {
+    console.log("signedStatus");
+  },
+  encryptionStatus() {
+    console.log("encryptionStatus");
+  },
+  ignoreStatusFrom() {
+    console.log("ignoreStatusFrom");
+  },
+
+  QueryInterface: ChromeUtils.generateQI(["nsIMsgSMIMEHeaderSink"]),
+};
+
+// ,
+//               {
+//                 "name": "msgId",
+//                 "type": "number",
+//                 "description": "The id of the message."
+//               },
+//               {
+//                 "name": "dueToReload",
+//                 "type": "boolean",
+//                 "description": "If this is a reload due to SMIME.",
+//                 "optional": true
+//               }
+
+let openPgpMsgHeaderSink = {
+  QueryInterface: ChromeUtils.generateQI([
+    "nsIWebProgressListener",
+    "nsISupportsWeakReference",
+  ]),
+
+  onStateChange(webProgress, request, stateFlags) {
+    // console.log(request.QueryInterface(Ci.nsIMailChannel));
+    if (!(request instanceof Ci.nsIMailChannel)) {
+      console.log("Not mail channel", stateFlags & 0x000000ff);
+      return;
+    }
+    console.log("onStateChange", stateFlags & 0x000000ff);
+    if (stateFlags & Ci.nsIWebProgressListener.STATE_START) {
+      console.log("adding smimeHeaderSink");
+      request.smimeHeaderSink = smimeHeaderSink;
+    } else if (stateFlags & Ci.nsIWebProgressListener.STATE_STOP) {
+      console.log("removing smimeHeaderSink");
+      request.smimeHeaderSink = null;
+    }
+  },
+  onStartHeaders() {
+    console.log("onStartHeaders");
+  },
+  onEndHeaders() {
+    console.log("onEndHeaders");
+  },
+  processHeaders() {
+    console.log("processHeaders");
+  },
+  handleAttachment() {
+    console.log("handleAttachment");
+  },
+  addAttachmentField() {
+    console.log("addAttachmentField");
+  },
+  onEndAllAttachments() {
+    console.log("onEndAllAttachments");
+  },
+  onEndMsgDownload() {
+    console.log("onEndMsgDownload");
+  },
+  onEndMsgHeaders() {
+    console.log("onEndMsgHeaders");
+  },
+  handleSMimeMessage() {
+    console.log("handleSMimeMessage");
+  },
+};
+
 /* exported convOpenPgp */
 var convOpenPgp = class extends ExtensionCommon.ExtensionAPI {
   getAPI(context) {
@@ -92,27 +170,48 @@ var convOpenPgp = class extends ExtensionCommon.ExtensionAPI {
     return {
       convOpenPgp: {
         beforeStreamingMessage(tabId, msgId, dueToReload) {
-          // Can't do anything in the custom standalone message window at the moment.
-          // if (tabId == -1) {
-          //   return;
-          // }
           // if (!dueToReload) {
-          //   let win = getWindow(context, tabId);
+          //   // let win = getWindow(context, tabId);
           //   // TODO: This might not be necessary once decryption handling is
           //   // in place, but not sure yet.
-          //   // Changed to `registerPGPMimeHandler` in Thunderbird 104.
-          //   "registerPGPMimeHandler" in win.EnigmailVerify
-          //     ? win.EnigmailVerify.registerPGPMimeHandler()
-          //     : win.EnigmailVerify.registerContentTypeHandler();
+          //   EnigmailVerify.registerPGPMimeHandler();
           // }
+          // let msgHdr = context.extension.messageManager.get(msgId);
           // // Not sure if we need this or not.
-          // // win.EnigmailVerify.lastMsgWindow = win.msgWindow;
+          // EnigmailVerify.lastMsgUri = msgHdr.folder.getUriForMsg(msgHdr);
         },
         handleMessageStreamed(winId, tabId, msgId) {},
         handleTagClick(tabId, msgId) {
           // let win = getWindow(context, tabId);
           // win.showMessageReadSecurityInfo();
         },
+        onStreamingMessage: new ExtensionCommon.EventManager({
+          context,
+          name: "convMsgWindow.onUpdateSecurityStatus",
+          register(fire, tabId) {
+            let tabObject = context.extension.tabManager.get(tabId);
+            let contentWin = tabObject.nativeTab.chromeBrowser.contentWindow;
+
+            // TODO: How to wait for tab loaded?
+            // Probably need to wait for the nativeTab to finish loading?
+            // Or maybe a browser underneath it?
+            openPgpWaitForWindow(contentWin).then(() => {
+              console.log(tabId, contentWin.multiMessageBrowser);
+              contentWin.multiMessageBrowser.addProgressListener(
+                openPgpMsgHeaderSink,
+                Ci.nsIWebProgress.NOTIFY_STATE_ALL |
+                  Ci.nsIWebProgress.NOTIFY_STATUS
+              );
+            });
+            return function () {
+              contentWin.multiMessageBrowser.removeProgressListener(
+                openPgpMsgHeaderSink,
+                Ci.nsIWebProgress.NOTIFY_STATE_ALL |
+                  Ci.nsIWebProgress.NOTIFY_STATUS
+              );
+            };
+          },
+        }).api(),
         onUpdateSecurityStatus: new ExtensionCommon.EventManager({
           context,
           name: "convMsgWindow.onUpdateSecurityStatus",

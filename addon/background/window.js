@@ -36,6 +36,10 @@ export class Window {
         listeners.doubleClick,
         tabId
       );
+      browser.convOpenPgp.onStreamingMessage.removeListener(
+        listeners.streamingMessage,
+        tabId
+      );
       this.#tabListeners.delete(tabId);
     });
 
@@ -107,6 +111,7 @@ export class Window {
   #addTabListener(tabId) {
     let listeners = {
       monkey: () => {},
+      streamingMessage: () => {},
       doubleClick: this.doubleClickHandler.bind(this),
     };
 
@@ -115,6 +120,12 @@ export class Window {
       listeners.doubleClick,
       tabId
     );
+    console.log(listeners.streamingMessage, tabId);
+    browser.convOpenPgp.onStreamingMessage.addListener(
+      listeners.streamingMessage,
+      tabId
+    );
+
     this.#tabListeners.set(tabId, listeners);
   }
 

@@ -207,6 +207,14 @@ export const summaryActions = {
         id,
         dueToReload
       );
+
+      // let fakeListener = () => {};
+      // await browser.convOpenPgp.onStreamingMessage.addListener(
+      //   fakeListener,
+      //   state.summary.tabId,
+      //   id,
+      //   dueToReload
+      // );
       let options = {
         msgId: id,
         iframeClass: `convIframe${id}`,
@@ -231,6 +239,12 @@ export const summaryActions = {
           })
         );
       }
+      // await browser.convOpenPgp.onStreamingMessage.removeListener(
+      //   fakeListener,
+      //   state.summary.tabId,
+      //   id,
+      //   dueToReload
+      // );
     };
   },
   messageUnloaded({ msgId }) {
